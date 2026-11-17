@@ -1,0 +1,40 @@
+name: Build Reel Counter
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract zip
+        run: |
+          ZIP=$(find . -maxdepth 2 -name 'ReelCounter*.zip' | head -n 1)
+          test -n "$ZIP" || { echo "No ReelCounter zip found in repo"; exit 1; }
+          mkdir -p src_extract
+          unzip -q -o "$ZIP" -d src_extract
+          ROOT=$(dirname "$(find src_extract -name settings.gradle.kts | head -n 1)")
+          echo "PROJECT_ROOT=$ROOT" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.7
+
+      - name: Build APK
+        working-directory: ${{ env.PROJECT_ROOT }}
+        run: gradle assembleDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ReelCounter-debug
+          path: ${{ env.PROJECT_ROOT }}/app/build/outputs/apk/debug/app-debug.apk
